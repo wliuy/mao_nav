@@ -3,7 +3,7 @@
   <div v-if="isLocked && !isUnlocked" class="lock-container">
     <div class="lock-box">
       <h1>🔐 访问验证</h1>
-      <!-- 2026-03-30 v2.4.0 视觉完全体：找回鼠标悬浮光晕，维持大字号、顶部对齐与间距 -->
+      <!-- 2026-03-30 v2.4.1 视觉微调：手机端介绍恢复显示 2 行，保持标题间距不变 -->
       <p class="lock-description">此导航站已启用访问保护</p>
       <form @submit.prevent="handleUnlock">
         <div class="form-group">
@@ -32,6 +32,7 @@
     <!-- 左侧边栏 -->
     <aside class="sidebar">
       <div class="logo-section">
+        <!-- 🌟 侧边栏 Logo 替换为自定义图片 -->
         <img src="/logo.png" class="logo" alt="Logo">
         <h1 class="site-title">{{ title || '8972导航' }}</h1>
       </div>
@@ -92,6 +93,7 @@
           />
         </div>
 
+        <!-- 主题切换按钮 -->
         <button class="theme-toggle-btn" @click="themeStore.toggleTheme" :title="themeStore.isDarkMode ? '切换到日间模式' : '切换到夜间模式'">
           <svg v-if="!themeStore.isDarkMode" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z"/>
@@ -129,21 +131,25 @@
           </ul>
         </div>
 
+        <!-- 移动端菜单遮罩 -->
         <div class="mobile-menu-overlay" :class="{ active: showMobileMenu }" @click="closeMobileMenu"></div>
       </header>
 
       <!-- 导航内容区 -->
       <div class="content-area">
+        <!-- 加载状态 -->
         <div v-if="loading" class="loading">
           <div class="loading-spinner"></div>
           <p>加载中...</p>
         </div>
 
+        <!-- 错误状态 -->
         <div v-else-if="error" class="error">
           <p>{{ error }}</p>
           <button @click="fetchCategories" class="retry-btn">重试</button>
         </div>
 
+        <!-- 分类内容 -->
         <div v-else class="categories-container">
           <section
             v-for="category in categories"
@@ -401,7 +407,7 @@ onUnmounted(() => {
   height: 90px !important;
 }
 
-/* 🌟 核心修正：找回鼠标悬浮光晕效果 */
+/* 找回鼠标悬浮光晕效果 */
 .site-card::before {
   content: '';
   position: absolute;
@@ -412,13 +418,12 @@ onUnmounted(() => {
   background: linear-gradient(135deg, rgba(52, 152, 219, 0.1), rgba(155, 89, 182, 0.1));
   opacity: 0;
   transition: opacity 0.3s ease;
-  z-index: 0; /* 在背景层 */
+  z-index: 0; 
 }
 
 .site-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); }
 .site-card:hover::before { opacity: 1; }
 
-/* 确保内容在光晕之上 */
 .site-icon, .site-info { position: relative; z-index: 1; }
 
 /* 图标容器：PC端 90px */
@@ -487,7 +492,11 @@ onUnmounted(() => {
     margin-bottom: 3px !important; 
   }
   
-  .site-card .site-description { font-size: 11px !important; -webkit-line-clamp: 1 !important; }
+  /* 🌟 核心修正：显示行数恢复为 2 行，字号 11px */
+  .site-card .site-description { 
+    font-size: 11px !important; 
+    -webkit-line-clamp: 2 !important; 
+  }
   
   .category-title { font-size: 20px; margin-bottom: 12px; }
 }
