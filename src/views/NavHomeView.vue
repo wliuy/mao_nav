@@ -3,7 +3,7 @@
   <div v-if="isLocked && !isUnlocked" class="lock-container">
     <div class="lock-box">
       <h1>🔐 访问验证</h1>
-      <!-- 2026-03-30 v2.3.4 视觉校准：手机端卡片高度改为 60px，保持双列精致紧凑布局 -->
+      <!-- 2026-03-30 v2.3.6 视觉最终校准：高度锁定(PC 90/Mob 60)，图标100%自适应高度，信息区垂直居中 -->
       <p class="lock-description">此导航站已启用访问保护</p>
       <form @submit.prevent="handleUnlock">
         <div class="form-group">
@@ -31,7 +31,6 @@
   <div v-else class="nav-home">
     <!-- 左侧边栏 -->
     <aside class="sidebar">
-      <!-- Logo区域 -->
       <div class="logo-section">
         <!-- 🌟 侧边栏 Logo 替换为自定义图片 -->
         <img src="/logo.png" class="logo" alt="Logo">
@@ -316,7 +315,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 基础与锁定界面 */
+/* 锁定与基础布局 */
 .lock-container { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: #2c3e50; padding: 20px; z-index: 9999; }
 .lock-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1); width: 100%; max-width: 400px; text-align: center; }
 .lock-box h1 { color: #2d3748; margin-bottom: 8px; font-size: 28px; font-weight: 600; }
@@ -334,9 +333,9 @@ onUnmounted(() => {
 
 /* 侧边栏 */
 .sidebar { width: 280px; background-color: #2c3e50; color: white; padding: 0; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1); height: 100vh; overflow: hidden; flex-shrink: 0; }
-.logo-section { display: flex; align-items: center; padding-left: 20px; padding-top: 13px; padding-bottom: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-.logo { width: 55px; height: 55px; border-radius: 12px; margin-right: 15px; object-fit: cover; }
-.site-title { font-size: 24px; font-weight: 600; margin: 0; color: white; }
+.logo-section { display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.logo { width: 50px; height: 50px; border-radius: 10px; margin-right: 15px; object-fit: cover; }
+.site-title { font-size: 22px; font-weight: 600; margin: 0; color: white; }
 .category-nav { padding: 20px 0; height: calc(100vh - 180px); overflow-y: auto; }
 .nav-title { font-size: 16px; font-weight: 600; margin: 0 20px 15px; color: #bdc3c7; text-transform: uppercase; letter-spacing: 1px; }
 .category-list { list-style: none; padding: 0; margin: 0; }
@@ -392,7 +391,7 @@ onUnmounted(() => {
 /* 🌟 PC端卡片网格 */
 .sites-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
 
-/* 🌟 PC端卡片高度：锁定 90px */
+/* 🌟 PC端卡片高度：强制锁定 90px */
 .site-card {
   display: flex !important;
   align-items: stretch !important;
@@ -409,11 +408,10 @@ onUnmounted(() => {
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); }
 
-/* 图标容器：PC端 90px */
+/* 🌟 图标容器：不设固定宽度，100% 适应卡片高度并保持正方形 */
 .site-icon {
-  aspect-ratio: 1 / 1 !important;
-  height: 90px !important;
-  width: 90px !important;
+  height: 100% !important; 
+  aspect-ratio: 1 / 1 !important; 
   flex-shrink: 0;
   background: #ffffff;
   display: flex;
@@ -423,13 +421,14 @@ onUnmounted(() => {
 }
 .site-icon img, .site-icon :deep(svg) { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block; }
 
+/* 🌟 信息区域：垂直居中展示，防止文字遮挡 */
 .site-info {
   flex: 1;
   min-width: 0;
   padding: 8px 14px !important;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center; /* 🌟 垂直居中 */
 }
 .site-name { font-size: 15px !important; font-weight: 600; margin: 0 0 2px 0 !important; color: #2c3e50; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -458,14 +457,14 @@ onUnmounted(() => {
   /* 网格保持 2 列 */
   .sites-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   
-  /* 核心修改：手机端卡片高度改为 60px */
+  /* 🌟 核心修改：手机端卡片高度强制改为 60px */
   .site-card { height: 60px !important; border-radius: 8px; }
   
-  /* 图标同步设为 60x60 */
-  .site-card .site-icon { width: 60px !important; height: 60px !important; }
+  /* 🌟 手机端图标同步适应 100% 高度 */
+  .site-card .site-icon { height: 100% !important; aspect-ratio: 1 / 1 !important; }
   
-  /* 手机端信息区极致紧凑 */
-  .site-card .site-info { padding: 4px 10px !important; }
+  /* 手机端信息区极致紧凑且垂直居中 */
+  .site-card .site-info { padding: 4px 10px !important; justify-content: center; }
   .site-card .site-name { font-size: 13px !important; margin-bottom: 1px !important; }
   
   /* 60px 高度下，介绍文字强制缩减为 1 行 */
