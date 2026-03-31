@@ -66,15 +66,25 @@ node push.js
 ```text
 8972dh-main/
 ├── src/
-│   ├── apis/            # GitHub API 通讯逻辑 (useGitHubAPI.js)
-│   ├── components/      # 后台管理组件 (SiteManager, CategoryManager 等)
-│   ├── mock/            # 核心数据存储 (mock_data.js)
-│   ├── stores/          # 全局状态管理 (主题、标题等)
-│   ├── views/           # 页面视图 (前台 NavHomeView, 后台 AdminView)
-│   └── App.vue          # 根组件
-├── public/              # 静态资源 (logo.png, 站点图标缓存)
-├── push.js              # 自动化推送脚本
-└── .env                 # 环境变量 (本地密钥，需手动创建)
+│   ├── apis/            # 核心接口层
+│   │   ├── useGitHubAPI.js    # 云端同步大脑 (处理 GitHub 读写)
+│   │   └── useNavigation.js   # 前台数据驱动 (负责首页数据加载)
+│   ├── components/      # 后台功能组件
+│   │   └── admin/
+│   │       ├── CategoryManager.vue # 分类管理 (Emoji选择、排序)
+│   │       ├── SiteManager.vue     # 站点管理 (AI抓取、增删改)
+│   │       └── SystemSettings.vue   # 系统设置 (标题、Logo、搜索)
+│   ├── mock/
+│   │   └── mock_data.js       # 核心数据库 (所有站点数据的归宿)
+│   ├── stores/
+│   │   └── counter.js         # 全局状态 (主题色、网站标题同步)
+│   ├── views/           # 页面视图层
+│   │   ├── NavHomeView.vue    # 前台首页 (用户看到的导航网格)
+│   │   └── AdminView.vue      # 后台主框架 (管理员登录与Tab调度)
+│   └── App.vue          # 根组件 (全站入口)
+├── public/              # 静态资源 (存放 logo.png)
+├── push.js              # 运维工具 (本地代码推送到 GitHub)
+└── .env                 # 核心配置 (存放密码与 GitHub Token)
 ```
 
 ## 🎯 UI 规范说明
