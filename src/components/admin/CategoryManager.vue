@@ -1,10 +1,16 @@
 <template>
-  <div class="category-manager">
+  <div class="site-manager">
     <!-- 管理头部 -->
     <div class="manager-header">
-      <h2>📁 分类管理</h2>
+      <h2>🌐 站点管理</h2>
       <div class="header-actions">
-        <button @click="openAddModal" class="add-btn">➕ 添加分类</button>
+        <select v-model="selectedCategoryId" class="category-filter">
+          <option value="">所有分类</option>
+          <option v-for="category in localCategories" :key="category.id" :value="category.id">
+            {{ category.icon }} {{ category.name }}
+          </option>
+        </select>
+        <button @click="openAddModal" class="add-btn">➕ 添加站点</button>
         <button @click="handleSave" :disabled="loading" class="save-btn">
           {{ loading ? '保存中...' : '💾 保存到GitHub' }}
         </button>
@@ -13,58 +19,53 @@
 
     <!-- 统计信息 -->
     <div class="stats-bar">
-       <div class="stat-info">
-        💡 提示：v2.5.0 成功集成 Emoji 快捷选择器，并保留了精致的左图右字横向预览布局。
+      <div class="stat-item">
+        <span class="stat-number">{{ totalSites }}</span>
+        <span class="stat-label">总站点数</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ localCategories.length }}</span>
+        <span class="stat-label">分类数</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ filteredSites.length }}</span>
+        <span class="stat-label">当前显示</span>
+      </div>
+      <div class="stat-info">
+        💡 提示：v2.5.4 已优化智能抓取逻辑，只要名称或描述为空即可触发 AI 自动填充。
       </div>
     </div>
 
-    <!-- 分类列表主体 -->
-    <div class="category-list">
-      <draggable 
-        v-model="localCategories" 
-        item-key="id" 
-        handle=".drag-handle"
-        animation="200"
-        @end="syncToParent"
-        class="category-draggable-area"
+    <!-- 站点网格列表 -->
+    <div class="sites-container">
+      <draggable
+        v-model="currentPageSites"
+        v-bind="dragOptions"
+        @end="onDragEnd"
+        item-key="id"
+        tag="div"
+        class="admin-sites-grid"
       >
-        <template #item="{ element: category, index }">
-          <div class="category-item-card">
-            <!-- 左侧拖拽手柄 -->
-            <div class="drag-handle" title="按住拖动排序">⋮⋮</div>
-
-            <div class="category-main-content">
-              <div class="category-info">
-                <span class="category-icon-display">{{ category.icon }}</span>
-                <div class="category-text">
-                  <h3 class="category-name">{{ category.name }}</h3>
-                  <p class="category-meta">{{ category.sites?.length || 0 }} 个站点 → 管理具体站点请前往“站点管理”</p>
-                </div>
+        <template #item="{ element: site }">
+          <div class="admin-site-card-wrapper">
+            <!-- 拖动手柄 -->
+            <div class="admin-drag-handle" v-if="selectedCategoryId" title="拖拽排序">⋮⋮</div>
+            
+            <!-- 站点卡片主体 -->
+            <div class="site-card">
+              <div class="site-icon">
+                <div v-if="isSvg(site.icon)" v-html="site.icon" class="svg-icon-wrapper"></div>
+                <img v-else :src="ensureIcon(site.icon)" :alt="site.name" @error="handleImageError">
+              </div>
+              <div class="site-info">
+                <h3 class="site-name">{{ site.name }}</h3>
+                <p class="site-description">{{ site.description || '暂无描述' }}</p>
               </div>
 
-              <!-- 🌟 预览区域：仅展示图标，增加熔断防止闪烁 -->
-              <div class="category-sites-preview" v-if="category.sites && category.sites.length > 0">
-                <div v-for="site in category.sites" :key="site.id" class="mini-site-tag">
-                  <div class="mini-site-icon">
-                    <!-- SVG 渲染 -->
-                    <div v-if="isSvg(site.icon)" v-html="site.icon" class="svg-mini-wrapper"></div>
-                    <!-- 图片渲染，带逻辑统一与熔断处理 -->
-                    <img v-else :src="ensureIcon(site.icon)" :alt="site.name" @error="handleImageError">
-                  </div>
-                  <span class="mini-site-name">{{ site.name }}</span>
-                </div>
-              </div>
-              <div v-else class="empty-category-hint">此分类下暂无站点</div>
-            </div>
-
-            <!-- 右侧操作栏 -->
-            <div class="category-actions">
-              <div class="rank-badge">排序指数: {{ index }}</div>
-              <div class="action-buttons">
-                <button @click="moveUp(index)" :disabled="index === 0" class="arrow-btn" title="上移">⬆️</button>
-                <button @click="moveDown(index)" :disabled="index === localCategories.length - 1" class="arrow-btn" title="下移">⬇️</button>
-                <button @click="editCategory(category)" class="edit-btn">✏️ 编辑</button>
-                <button @click="deleteCategory(category)" class="delete-btn">🗑️ 删除</button>
+              <!-- 操作遮罩层 -->
+              <div class="card-admin-actions">
+                <button @click.stop="editSite(site)" class="mini-btn edit" title="编辑">✏️</button>
+                <button @click.stop="deleteSite(site)" class="mini-btn delete" title="删除">🗑️</button>
               </div>
             </div>
           </div>
@@ -72,41 +73,61 @@
       </draggable>
     </div>
 
-    <!-- 添加/编辑分类弹窗 -->
-    <div v-if="showAddModal || editingCategory" class="modal-overlay">
+    <!-- 添加/编辑弹窗 -->
+    <div v-if="showAddModal || editingSite" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>{{ editingCategory ? '编辑分类' : '添加分类' }}</h3>
-          <button @click="closeModal" class="close-btn">✕</button>
+          <h3>{{ editingSite ? '编辑站点' : '添加站点' }}</h3>
+          <button @click="closeModal" class="close-btn" :disabled="isFetchingInfo">✕</button>
         </div>
-        <form @submit.prevent="saveCategory" class="category-form">
-          <div class="form-group">
-            <label>分类名称 *:</label>
-            <input v-model="formData.name" required placeholder="例如：常用工具" class="form-input">
+        <form @submit.prevent="saveSite" class="site-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>站点名称 *:</label>
+              <input v-model="formData.name" required placeholder="请输入名称" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>所属分类 *:</label>
+              <select v-model="formData.categoryId" required class="form-input">
+                <option v-for="category in localCategories" :key="category.id" :value="category.id">
+                  {{ category.icon }} {{ category.name }}
+                </option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
-            <label>分类图标 * (点击下方 Emoji 快速选择):</label>
-            <div class="icon-input-wrapper">
-              <input v-model="formData.icon" required placeholder="输入或点击下方图标" class="form-input icon-input">
-              <span class="icon-preview">{{ formData.icon }}</span>
+            <label>站点地址 *:</label>
+            <div class="url-input-group">
+              <input v-model="formData.url" type="url" required placeholder="https://" class="form-input">
             </div>
-            
-            <!-- 🌟 恢复的 Emoji 快捷选择面板 -->
-            <div class="emoji-picker">
-              <span 
-                v-for="emoji in commonEmojis" 
-                :key="emoji" 
-                class="emoji-item"
-                @click="formData.icon = emoji"
-                :class="{ active: formData.icon === emoji }"
+          </div>
+          <div class="form-group">
+            <label>站点描述:</label>
+            <textarea v-model="formData.description" class="form-textarea" rows="2" placeholder="简短描述"></textarea>
+          </div>
+          <div class="form-group">
+            <label>站点图标与信息自检:</label>
+            <div class="icon-input-group">
+              <input v-model="formData.icon" class="form-input" placeholder="图标地址或 SVG">
+              <button 
+                type="button" 
+                @click="smartFetchInfo" 
+                class="auto-icon-btn" 
+                :disabled="isFetchingInfo || !formData.url"
               >
-                {{ emoji }}
-              </span>
+                <span v-if="isFetchingInfo">⏳ 抓取中...</span>
+                <span v-else>🔍 智能获取</span>
+              </button>
             </div>
+            <div class="icon-preview-box">
+               <div v-if="isSvg(formData.icon)" v-html="formData.icon" class="svg-preview"></div>
+               <img v-else :src="ensureIcon(formData.icon)" alt="预览" @error="handleImageError">
+            </div>
+            <p class="hint-text">名称或描述留空时，将利用 AI 自动识别并拆分站点信息</p>
           </div>
           <div class="form-actions">
-            <button type="button" @click="closeModal" class="cancel-btn">取消</button>
-            <button type="submit" class="submit-btn">{{ editingCategory ? '更新分类' : '立即添加' }}</button>
+            <button type="button" @click="closeModal" class="cancel-btn" :disabled="isFetchingInfo">取消</button>
+            <button type="submit" class="submit-btn" :disabled="isFetchingInfo">{{ editingSite ? '更新' : '添加' }}</button>
           </div>
         </form>
       </div>
@@ -115,298 +136,338 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import draggable from 'vuedraggable'
 
 const props = defineProps({
   categories: { type: Array, default: () => [] },
+  initialSelectedCategoryId: { type: String, default: '' },
   loading: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update', 'save'])
+
+// Gemini API 配置
+const apiKey = "";
+const isFetchingInfo = ref(false);
+
 const localCategories = ref([])
+const selectedCategoryId = ref('')
 const showAddModal = ref(false)
-const editingCategory = ref(null)
-const formData = ref({ name: '', icon: '' })
+const editingSite = ref(null)
 
-// 🌟 精选的 Emoji 候选池
-const commonEmojis = [
-  '⭐', '🔥', '🔗', '🛠️', '📁', '📁', '💻', '🎮', '🎬', '🎵', 
-  '📚', '🎨', '🔍', '⚙️', '💼', '🏠', '🌍', '📱', '☁️', '💡',
-  '🛍️', '🍎', '🍵', '⚡', '🚀', '🎁', '📅', '💬', '🔐', '📸'
-]
+const formData = ref({ name: '', url: '', description: '', icon: '', categoryId: '' })
 
-// 同步父组件传入的分类数据
-watch(() => props.categories, (val) => {
-  localCategories.value = JSON.parse(JSON.stringify(val))
+watch(() => props.categories, (val) => { 
+  localCategories.value = JSON.parse(JSON.stringify(val)) 
 }, { immediate: true, deep: true })
+
+watch(() => props.initialSelectedCategoryId, (val) => { 
+  if (val) selectedCategoryId.value = val 
+}, { immediate: true })
 
 const syncToParent = () => emit('update', localCategories.value)
 
-const dragOptions = computed(() => ({
-  animation: 250,
-  ghostClass: "sortable-ghost",
-  handle: ".drag-handle"
-}))
-
-// 🌟 辅助逻辑：识别 SVG 代码
 const isSvg = (icon) => icon && icon.trim().toLowerCase().startsWith('<svg')
 
-// 🌟 辅助逻辑：确保图标有值，如果是空值或空格则直接返回 logo.png，防止无效请求
 const ensureIcon = (icon) => {
   if (!icon || icon.trim() === '') return '/logo.png'
   return icon
 }
 
-// 🌟 核心逻辑：防止预览图加载失败导致的闪烁死循环
+const allSites = computed(() => {
+  const sites = []
+  localCategories.value.forEach(cat => {
+    if (cat.sites) cat.sites.forEach(s => sites.push({ ...s, categoryId: cat.id }))
+  })
+  return sites
+})
+
+const totalSites = computed(() => allSites.value.length)
+const filteredSites = computed(() => selectedCategoryId.value ? allSites.value.filter(s => s.categoryId === selectedCategoryId.value) : allSites.value)
+
+const currentPageSites = computed({
+  get() { return filteredSites.value },
+  set(newSites) {
+    if (!selectedCategoryId.value) return
+    const cat = localCategories.value.find(c => c.id === selectedCategoryId.value)
+    if (cat) {
+      cat.sites = newSites.map(s => ({ ...s }))
+      syncToParent()
+    }
+  }
+})
+
+const dragOptions = computed(() => ({
+  animation: 250,
+  group: "sites",
+  disabled: !selectedCategoryId.value,
+  ghostClass: "sortable-ghost",
+  handle: ".admin-drag-handle"
+}))
+
+const editSite = (site) => {
+  editingSite.value = site
+  formData.value = { ...site }
+}
+
+const deleteSite = (site) => {
+  if (confirm(`确定删除 "${site.name}" 吗？`)) {
+    const cat = localCategories.value.find(c => c.id === site.categoryId)
+    if (cat) {
+      cat.sites = cat.sites.filter(s => s.id !== site.id)
+      syncToParent()
+    }
+  }
+}
+
+const onDragEnd = () => console.log('排序已同步')
+
+/**
+ * 🌟 核心功能：智能抓取与解析 (v2.5.4)
+ */
+const smartFetchInfo = async () => {
+  if (!formData.value.url) return;
+  isFetchingInfo.value = true;
+
+  try {
+    const urlObj = new URL(formData.value.url);
+    
+    // 1. 同步抓取高清 Favicon
+    if (!formData.value.icon || formData.value.icon === '/logo.png') {
+       formData.value.icon = `https://www.google.com/s2/favicons?sz=128&domain=${urlObj.hostname}`;
+    }
+
+    // 2. 如果名称或描述为空，调用 Gemini 解析网站元数据
+    if (!formData.value.name.trim() || !formData.value.description.trim()) {
+      const siteInfo = await callGeminiSiteParser(formData.value.url);
+      if (siteInfo) {
+        // 仅在字段为空时填充
+        if (!formData.value.name.trim()) {
+          formData.value.name = siteInfo.name || '';
+        }
+        if (!formData.value.description.trim()) {
+          formData.value.description = siteInfo.description || '';
+        }
+      }
+    }
+  } catch (e) {
+    console.error('智能抓取失败:', e);
+  } finally {
+    isFetchingInfo.value = false;
+  }
+}
+
+/**
+ * 🌟 清理可能存在的 Markdown 代码块标签
+ */
+function cleanJsonResponse(text) {
+  if (!text) return "{}";
+  // 移除 ```json 和 ``` 标签
+  return text.replace(/```json\n?/, '').replace(/```\n?/, '').trim();
+}
+
+/**
+ * 🌟 调用 Gemini 2.5 解析网站
+ * 包含更严谨的拆分逻辑与容错
+ */
+async function callGeminiSiteParser(url) {
+  const model = "gemini-2.5-flash-preview-09-2025";
+  const systemPrompt = `你是一个专业的网站元数据提取专家。
+  任务：提取该网站的正式名称和核心功能描述。
+  
+  关键规则：
+  1. 如果网站标题包含 '|'、'-'、'—'、'_' 等分隔符，请将第一部分作为 name，其余部分作为 description。
+  2. 例子：输入 "8972|资源站"，结果应为 name: "8972", description: "资源站"。
+  3. 描述请尽量精炼（20字以内）。
+  4. 必须只返回有效的 JSON 对象。`;
+  
+  const payload = {
+    contents: [{ parts: [{ text: `请分析并提取此网站的信息：${url}` }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          description: { type: "STRING" }
+        },
+        required: ["name", "description"]
+      }
+    },
+    tools: [{ google_search: {} }]
+  };
+
+  const fetchWithRetry = async (delay = 1000, retries = 5) => {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('API Request Failed');
+      const result = await response.json();
+      const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      return JSON.parse(cleanJsonResponse(rawText));
+    } catch (error) {
+      if (retries > 0) {
+        await new Promise(res => setTimeout(res, delay));
+        return fetchWithRetry(delay * 2, retries - 1);
+      }
+      throw error;
+    }
+  };
+
+  try {
+    return await fetchWithRetry();
+  } catch (err) {
+    return null;
+  }
+}
+
+const saveSite = () => {
+  const targetCatId = formData.value.categoryId
+  const targetCat = localCategories.value.find(c => c.id === targetCatId)
+  if (!targetCat) return
+
+  const isEditing = !!editingSite.value
+  const siteId = isEditing ? editingSite.value.id : `site-${Date.now()}`
+
+  const siteData = isEditing 
+    ? { ...editingSite.value, ...formData.value, id: siteId }
+    : { ...formData.value, id: siteId }
+  
+  delete siteData.categoryId
+
+  if (isEditing) {
+    let siteProcessed = false
+    for (const cat of localCategories.value) {
+      if (!cat.sites) continue
+      const index = cat.sites.findIndex(s => s.id === siteId)
+      if (index !== -1) {
+        siteProcessed = true
+        if (cat.id === targetCatId) {
+          cat.sites.splice(index, 1, siteData)
+        } else {
+          cat.sites.splice(index, 1)
+          if (!targetCat.sites) targetCat.sites = []
+          targetCat.sites.push(siteData)
+        }
+        break 
+      }
+    }
+    if (!siteProcessed) {
+      if (!targetCat.sites) targetCat.sites = []
+      targetCat.sites.push(siteData)
+    }
+  } else {
+    if (!targetCat.sites) targetCat.sites = []
+    targetCat.sites.push(siteData)
+  }
+  
+  syncToParent()
+  closeModal()
+}
+
+const openAddModal = () => {
+  showAddModal.value = true
+  formData.value = { name: '', url: '', description: '', icon: '', categoryId: selectedCategoryId.value || localCategories.value[0]?.id }
+}
+
+const closeModal = () => {
+  if (isFetchingInfo.value) return;
+  showAddModal.value = false
+  editingSite.value = null
+}
+
 const handleImageError = (e) => { 
   if (e.target.dataset.tried === 'true') {
-    // 熔断：如果 logo.png 也加载失败，直接隐藏图片并显示占位底色
     e.target.style.display = 'none';
-    e.target.parentNode.style.backgroundColor = '#f0f2f5';
+    e.target.parentNode.style.backgroundColor = '#f5f5f5';
     return;
   }
   e.target.dataset.tried = 'true';
   e.target.src = '/logo.png'; 
 }
 
-const editCategory = (category) => {
-  editingCategory.value = category
-  formData.value = { ...category }
-}
-
-const deleteCategory = (category) => {
-  if (!confirm(`确定要彻底删除分类 "${category.name}" 吗？该分类下的所有站点也将一并移除！`)) return
-  localCategories.value = localCategories.value.filter(c => c.id !== category.id)
-  syncToParent()
-}
-
-const saveCategory = () => {
-  if (editingCategory.value) {
-    const target = localCategories.value.find(c => c.id === editingCategory.value.id)
-    if (target) {
-      target.name = formData.value.name
-      target.icon = formData.value.icon
-    }
-  } else {
-    localCategories.value.push({ 
-      id: `cat-${Date.now()}`, 
-      name: formData.value.name, 
-      icon: formData.value.icon, 
-      sites: [] 
-    })
-  }
-  syncToParent()
-  closeModal()
-}
-
-const openAddModal = () => { showAddModal.value = true; formData.value = { name: '', icon: '📁' }; }
-const closeModal = () => { showAddModal.value = false; editingCategory.value = null; }
-
-const moveUp = (idx) => { 
-  if (idx > 0) { 
-    const i = localCategories.value.splice(idx, 1)[0]; 
-    localCategories.value.splice(idx - 1, 0, i); 
-    syncToParent(); 
-  } 
-}
-const moveDown = (idx) => { 
-  if (idx < localCategories.value.length - 1) { 
-    const i = localCategories.value.splice(idx, 1)[0]; 
-    localCategories.value.splice(idx + 1, 0, i); 
-    syncToParent(); 
-  } 
-}
-
 const handleSave = () => emit('save')
 </script>
 
 <style scoped>
-.category-manager { padding: 10px 0; }
+.site-manager { padding: 10px 0; }
 .manager-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .header-actions { display: flex; gap: 10px; }
+.category-filter { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: #fff; }
 
-/* 🌟 解决顶部按钮文字不显示问题 */
-.add-btn { 
-  background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; 
-  font-weight: 500; transition: background 0.2s; white-space: nowrap; flex-shrink: 0;
-}
-.add-btn:hover { background: #219150; }
-.save-btn { 
-  background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; 
-  font-weight: 500; white-space: nowrap; flex-shrink: 0;
-}
+.add-btn { background: #27ae60; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+.save-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
 .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.stats-bar { margin-bottom: 20px; padding: 12px 16px; background: #f8fafc; border: 1px solid #edf2f7; border-radius: 10px; font-size: 13px; color: #64748b; }
+.stats-bar { display: flex; gap: 20px; margin-bottom: 20px; align-items: center; background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex-wrap: wrap; }
+.stat-item { display: flex; flex-direction: column; align-items: center; }
+.stat-number { font-size: 20px; font-weight: bold; color: #3498db; }
+.stat-label { font-size: 12px; color: #999; }
+.stat-info { font-size: 13px; color: #666; margin-left: auto; }
 
-.category-item-card { display: flex; align-items: flex-start; background: white; border-radius: 14px; border: 1px solid #e2e8f0; padding: 20px; margin-bottom: 16px; transition: box-shadow 0.2s; }
-.category-item-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+.admin-sites-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.admin-site-card-wrapper { position: relative; }
+.admin-drag-handle { position: absolute; left: -8px; top: 50%; transform: translateY(-50%); cursor: move; color: #ccc; font-size: 18px; z-index: 5; padding: 10px 4px; }
 
-.drag-handle { cursor: grab; padding: 8px 16px 8px 0; color: #cbd5e1; font-size: 22px; user-select: none; }
-.category-main-content { flex: 1; min-width: 0; }
+.site-card { display: flex; align-items: stretch; background: white; border-radius: 12px; border: 1px solid #eee; height: 90px; overflow: hidden; position: relative; transition: all 0.3s ease; }
+.site-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.1); border-color: #3498db; }
 
-.category-info { display: flex; align-items: center; margin-bottom: 15px; }
-.category-icon-display { font-size: 28px; margin-right: 15px; }
-.category-name { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0; }
-.category-meta { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+.site-icon { aspect-ratio: 1 / 1 !important; height: 100% !important; background: #fcfcfc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.site-icon img, .site-icon :deep(svg) { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block; }
+.svg-icon-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 
-/* 🌟 横向卡片网格布局 */
-.category-sites-preview { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
-  gap: 10px; 
-  padding: 15px; 
-  background: #f8fafc; 
-  border-radius: 10px; 
-  border: 1px dashed #e2e8f0; 
-}
+.site-info { flex: 1; padding: 10px 14px; display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; background: white; }
+.site-name { font-size: 15px; font-weight: 600; margin: 2px 0; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-description { font-size: 11px; color: #999; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* 🌟 回归精致横向布局 (左图右字) */
-.mini-site-tag { 
-  display: flex; 
-  align-items: center; 
-  background: white; 
-  border: 1px solid #edf0f2; 
-  border-radius: 6px; 
-  height: 42px; 
-  overflow: hidden; 
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
+.card-admin-actions { position: absolute; top: 0; right: 0; bottom: 0; left: 90px; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; gap: 15px; opacity: 0; transition: opacity 0.2s; backdrop-filter: blur(2px); }
+.site-card:hover .card-admin-actions { opacity: 1; }
 
-.mini-site-icon { 
-  height: 100%; 
-  aspect-ratio: 1 / 1; 
-  flex-shrink: 0; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  background: #fcfcfc;
-  border-right: 1px solid #f1f5f9;
-}
+.mini-btn { border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+.mini-btn.edit { background: #f39c12; color: white; }
+.mini-btn.delete { background: #e74c3c; color: white; }
 
-.mini-site-icon img, .svg-mini-wrapper :deep(svg) { 
-  width: 100% !important; 
-  height: 100% !important; 
-  object-fit: cover !important; 
-  display: block;
-}
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: white; padding: 25px; border-radius: 12px; width: 500px; max-width: 95%; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+.close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8; }
 
-.mini-site-name { 
-  flex: 1; 
-  padding: 0 10px; 
-  font-size: 11.5px; 
-  font-weight: 500; 
-  color: #4a5568; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-  white-space: nowrap; 
-}
+.site-form { display: flex; flex-direction: column; gap: 15px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.form-group label { font-size: 14px; font-weight: 500; color: #555; }
+.form-input, .form-textarea { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
 
-.empty-category-hint { font-size: 13px; color: #cbd5e1; padding: 15px; font-style: italic; }
+.icon-input-group { display: flex; gap: 8px; }
+.auto-icon-btn { background: #3498db; color: white; border: none; padding: 0 15px; border-radius: 8px; cursor: pointer; font-size: 13px; min-width: 100px; }
+.auto-icon-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.category-actions { margin-left: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
-.rank-badge { background: #f1f5f9; color: #64748b; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
-.action-buttons { display: flex; gap: 8px; }
+.icon-preview-box { margin-top: 5px; width: 64px; height: 64px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #fafafa; position: relative; }
+.icon-preview-box img, .svg-preview :deep(svg) { width: 100%; height: 100%; object-fit: contain; }
 
-.arrow-btn { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; cursor: pointer; transition: background 0.2s; }
-.arrow-btn:hover:not(:disabled) { background: #f8fafc; }
-.arrow-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.hint-text { font-size: 11px; color: #999; margin: 4px 0; }
 
-.edit-btn { background: #fff; color: #f39c12; border: 1px solid #f39c12; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
-.edit-btn:hover { background: #fcf3e8; }
-.delete-btn { background: #fff; color: #e74c3c; border: 1px solid #e74c3c; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
-.delete-btn:hover { background: #fdf2f2; }
+.form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 15px; }
+.submit-btn { padding: 10px 25px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; }
 
-/* 弹窗样式保持稳定 */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-.modal-content { background: white; padding: 30px; border-radius: 16px; width: 450px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; }
-.close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; }
-
-.category-form { display: flex; flex-direction: column; gap: 20px; }
-.form-group { display: flex; flex-direction: column; gap: 10px; }
-.form-group label { font-size: 14px; font-weight: 600; color: #475569; }
-.form-input { padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 15px; outline: none; transition: border-color 0.2s; }
-.form-input:focus { border-color: #3498db; }
-
-/* 🌟 恢复：Emoji 面板样式 */
-.icon-input-wrapper { display: flex; gap: 10px; align-items: center; }
-.icon-input { flex: 1; }
-.icon-preview { width: 42px; height: 42px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 1px solid #e2e8f0; }
-
-.emoji-picker { 
-  display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; 
-  padding: 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #edf2f7;
-}
-.emoji-item { 
-  cursor: pointer; font-size: 18px; text-align: center; padding: 5px; 
-  border-radius: 6px; transition: background 0.2s;
-}
-.emoji-item:hover { background: #e2e8f0; transform: scale(1.2); }
-.emoji-item.active { background: #3498db; color: white; }
-
-.form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; padding-top: 20px; border-top: 1px solid #f1f5f9; }
-.cancel-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; color: #64748b; font-weight: 500; }
-.submit-btn { padding: 10px 25px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-
-/* 🌟 手机端深度适配 */
 @media (max-width: 768px) {
-  .manager-header { flex-direction: row; flex-wrap: nowrap; gap: 5px; }
-  .manager-header h2 { font-size: 18px; margin-bottom: 0; white-space: nowrap; }
-  .header-actions { gap: 5px; }
-  .add-btn, .save-btn { padding: 8px 12px; font-size: 13px; }
-
-  .category-item-card { padding: 12px; flex-direction: column; position: relative; }
-  .drag-handle { width: 100%; text-align: center; padding: 4px 0 8px; font-size: 18px; border-bottom: 1px solid #f1f5f9; margin-bottom: 12px; }
-  
-  .category-info { margin-bottom: 10px; }
-  .category-icon-display { font-size: 24px; margin-right: 10px; }
-  .category-name { font-size: 16px; }
-  
-  /* 手机端预览网格：2列排列，确保文字可见 */
-  .category-sites-preview { 
-    grid-template-columns: 1fr 1fr; 
-    gap: 8px; 
-    padding: 10px; 
-    border: none; 
-    background: #f5f7fa; 
-  }
-  .mini-site-tag { height: 38px; border-radius: 4px; box-shadow: none; border-color: #edf2f7; }
-  .mini-site-name { font-size: 10px; padding: 0 6px; }
-
-  .emoji-picker { grid-template-columns: repeat(6, 1fr); }
-  
-  /* 🌟 核心修复：手机端操作按钮改为 2x2 网格，确保汉字完整显示 */
-  .category-actions { margin-left: 0; width: 100%; align-items: stretch; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
-  .rank-badge { margin-bottom: 10px; text-align: center; font-size: 10px; }
-  
-  .action-buttons { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; /* 2列布局 */
-    gap: 8px; 
-    width: 100%; 
-  }
-  .action-buttons button { 
-    padding: 10px 0; 
-    font-size: 14px; 
-    width: 100%; 
-    text-align: center; 
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .arrow-btn { background: #f8fafc; }
-  
-  .modal-content { width: 92%; padding: 20px; }
-}
-
-/* 🌟 超窄屏幕适配 */
-@media (max-width: 360px) {
-  .category-sites-preview { grid-template-columns: 1fr; }
-  .action-buttons button { font-size: 12px; }
-  .emoji-picker { grid-template-columns: repeat(5, 1fr); }
+  .manager-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .header-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .category-filter { flex: 1; min-width: 120px; }
+  .add-btn, .save-btn { flex: 1; text-align: center; }
+  .stat-info { width: 100%; margin-top: 10px; text-align: left; }
+  .admin-sites-grid { grid-template-columns: 1fr; gap: 12px; }
+  .site-card { height: 80px; }
+  .site-icon { height: 80px; width: 80px; }
+  .card-admin-actions { position: relative; left: 0; width: 60px; height: 100%; opacity: 1; background: #f8fafc; border-left: 1px solid #eee; flex-direction: column; gap: 8px; padding: 0 5px; backdrop-filter: none; }
+  .mini-btn { width: 30px; height: 30px; font-size: 14px; }
+  .site-info { padding: 8px 12px; }
+  .site-name { font-size: 14px; }
+  .site-description { -webkit-line-clamp: 2; font-size: 10px; }
 }
 </style>
