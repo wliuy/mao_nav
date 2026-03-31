@@ -250,7 +250,7 @@ export const mockData = {
     },
     {
       "id": "category-1773221502159",
-      "icon": "🎵",
+      "icon": "🍿",
       "name": "在线影音",
       "order": 5,
       "sites": [
@@ -263,12 +263,11 @@ export const mockData = {
           "categoryId": "category-1773221502159"
         },
         {
-          "name": "music-dl",
+          "name": "Music-dl",
           "url": "https://music.kukuqaq.com/music/",
           "description": "聚合音乐搜索与解析",
           "icon": "https://www.faviconextractor.com/favicon/music.kukuqaq.com",
-          "id": "site-1774960027464",
-          "categoryId": "category-1773221502159"
+          "id": "site-1774960027464"
         },
         {
           "id": "site-1773223405734",
