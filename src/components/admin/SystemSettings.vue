@@ -5,14 +5,12 @@
       <p>管理导航站的系统配置和 GitHub 集成</p>
     </div>
 
-    <!-- 统计信息/提示 -->
     <div class="stats-bar">
       <div class="stat-info">
-        💡 提示：v2.4.7 启用“全属性克隆”技术，防止修改站点时因元数据丢失导致的排序失效。
+        💡 提示：v2.4.8 启用“全属性克隆”技术，防止修改站点时因元数据丢失导致的排序失效。
       </div>
     </div>
 
-    <!-- GitHub连接状态 -->
     <div class="settings-section">
       <h3>🔗 GitHub 集成状态</h3>
       <div class="github-status" :class="{ connected: connectionStatus?.connected }">
@@ -42,11 +40,9 @@
       </div>
     </div>
 
-    <!-- 网站设置 -->
     <div class="settings-section">
       <h3>🌐 网站设置</h3>
       <div class="website-settings">
-        <!-- 网站标题设置 -->
         <div class="setting-group">
           <label>网站标题:</label>
           <div class="title-input-group">
@@ -68,7 +64,6 @@
           <p class="setting-description">当前标题: {{ currentTitle || '8972导航' }}</p>
         </div>
 
-        <!-- 默认搜索引擎设置 -->
         <div class="setting-group">
           <label>默认搜索引擎:</label>
           <div class="search-engine-input-group">
@@ -92,7 +87,6 @@
           <p class="setting-description">当前搜索引擎: {{ searchEngineOptions.find(opt => opt.value === currentSearchEngine)?.label || 'Bing' }}</p>
         </div>
 
-        <!-- Logo设置 -->
         <div class="setting-group">
           <label>网站Logo:</label>
           <div class="logo-upload-area">
@@ -140,7 +134,6 @@
       </div>
     </div>
 
-    <!-- 环境变量配置 -->
     <div class="settings-section">
       <h3>🌍 环境变量配置 (本地只读)</h3>
       <div class="env-config">
@@ -179,7 +172,6 @@
       </div>
     </div>
 
-    <!-- 配置说明 -->
     <div class="settings-section">
       <h3>📖 配置说明</h3>
       <div class="config-guide">
@@ -212,7 +204,6 @@ VITE_GITHUB_BRANCH=main</code></pre>
       </div>
     </div>
 
-    <!-- 系统信息 -->
     <div class="settings-section">
       <h3>ℹ️ 系统信息</h3>
       <div class="system-info">
@@ -233,7 +224,6 @@ VITE_GITHUB_BRANCH=main</code></pre>
       </div>
     </div>
 
-    <!-- 自定义弹框 -->
     <CustomDialog
       :visible="dialogVisible"
       :type="dialogType"

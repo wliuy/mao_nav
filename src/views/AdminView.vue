@@ -1,10 +1,8 @@
 <template>
   <div class="admin-container">
-    <!-- 登录界面 -->
     <div v-if="!isAuthenticated" class="login-container">
       <div class="login-box">
         <h1>🔐 管理员登录</h1>
-        <!-- 2026-03-30 v2.3.7 视觉重构：手机端后台导航改为横向滑动排列 -->
         <form @submit.prevent="handleLogin">
           <div class="form-group">
             <label for="password">管理密钥:</label>
@@ -27,9 +25,7 @@
       </div>
     </div>
 
-    <!-- 管理界面 -->
     <div v-else class="admin-dashboard">
-      <!-- 顶部导航 -->
       <header class="admin-header">
         <div class="header-content">
           <h1>🛠️ 导航站管理</h1>
@@ -42,9 +38,7 @@
         </div>
       </header>
 
-      <!-- 主要内容 -->
       <main class="admin-main">
-        <!-- 加载状态显示 -->
         <div v-if="loading" class="loading-overlay">
           <div class="loading-content">
             <div class="loading-spinner"></div>
@@ -53,21 +47,13 @@
           </div>
         </div>
 
-        <!-- 🌟 核心修改点：横向排列的 Tab 容器 -->
         <div class="admin-tabs">
           <button
             class="tab-btn"
             :class="{ active: activeTab === 'categories' }"
             @click="activeTab = 'categories'"
           >
-            📁 分类管理
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'sites' }"
-            @click="switchToSiteTab"
-          >
-            🌐 站点管理
+            🖥️ 前台管理
           </button>
           <button
             class="tab-btn"
@@ -78,36 +64,21 @@
           </button>
         </div>
 
-        <!-- 分类管理 -->
         <div v-if="activeTab === 'categories'" class="tab-content">
           <CategoryManager
             :categories="categories"
             @update="handleCategoriesUpdate"
             @save="saveToGitHub"
-            @viewSites="switchToSiteManager"
             :loading="saving"
           />
         </div>
 
-        <!-- 站点管理 -->
-        <div v-if="activeTab === 'sites'" class="tab-content">
-          <SiteManager
-            :categories="categories"
-            :initialSelectedCategoryId="selectedCategoryId"
-            @update="handleCategoriesUpdate"
-            @save="saveToGitHub"
-            :loading="saving"
-          />
-        </div>
-
-        <!-- 系统设置 -->
         <div v-if="activeTab === 'settings'" class="tab-content">
           <SystemSettings />
         </div>
       </main>
     </div>
 
-    <!-- 自定义弹框 -->
     <CustomDialog
       :visible="dialogVisible"
       :type="dialogType"
@@ -124,7 +95,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import CategoryManager from '../components/admin/CategoryManager.vue'
-import SiteManager from '../components/admin/SiteManager.vue'
 import SystemSettings from '../components/admin/SystemSettings.vue'
 import CustomDialog from '../components/admin/CustomDialog.vue'
 import { useGitHubAPI } from '../apis/useGitHubAPI.js'
@@ -143,7 +113,6 @@ const saving = ref(false)
 const activeTab = ref('categories')
 const categories = ref([])
 const navTitle = ref('8972导航') // 保存网站标题
-const selectedCategoryId = ref('') // 用于站点管理的选中分类
 
 // 紧急兜底：如果5秒后loading还是true，强制重置
 setTimeout(() => {
@@ -278,18 +247,6 @@ const loadCategories = async () => {
 // 处理分类更新
 const handleCategoriesUpdate = (newCategories) => {
   categories.value = newCategories
-}
-
-// 切换到站点管理并选中对应分类
-const switchToSiteManager = (categoryId) => {
-  selectedCategoryId.value = categoryId
-  activeTab.value = 'sites'
-}
-
-// 手动切换到站点管理标签
-const switchToSiteTab = () => {
-  selectedCategoryId.value = '' // 清空选中分类，显示所有站点
-  activeTab.value = 'sites'
 }
 
 // 显示弹框
