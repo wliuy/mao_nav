@@ -208,7 +208,7 @@ export const mockData = {
           "name": "4K原盘",
           "url": "https://pomo.mom/",
           "description": "免费下载",
-          "icon": "https://tc.yang.pp.ua/file/Blog/4K.png"
+          "icon": "https://tc.yang.pp.ua/file/logo/4K.png"
         },
         {
           "id": "site-1777202918058",
